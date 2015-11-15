@@ -482,12 +482,12 @@ var requestAnimFrame = (function(){
 
 var lastTime;
 
+/******************
+/* MAIN          */
+/*****************/
 function main() {
     var now = Date.now();
     var dt = (now - lastTime) / 1000.0;
-	//
-	manageEvents();
-	//
 	switch (state.current){
 	    case state["INIT"]:
 			playerBlueKO.done = false;
@@ -517,6 +517,7 @@ function main() {
 			gameover.render(ctx);
 			break;
 		case state["PLAYING"]:
+			manageEvents();
 		case state["BACKTOBASE"]:
 		    update(dt);
 		case state["SCORE"]:
@@ -768,7 +769,7 @@ function render(){
 	}
 };
 
-//collisions heplers
+//collisions helpers
 function collides(x, y, r, b, x2, y2, r2, b2) {
     return !(r <= x2 || x > r2 ||
              b <= y2 || y > b2);
