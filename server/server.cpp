@@ -864,9 +864,8 @@ void HTTPResponseBuilder::BuildHttpMessage(){
 }
 
 void HTTPMessage::SetHttpMessage(const char* message){
-	_httpMessage = GCC_NEW char[strlen(message)];
-	memset(_httpMessage, '\0', strlen(_httpMessage));
-	memcpy(_httpMessage , message, strlen(message));
+	_httpMessage = GCC_NEW char[512];
+	strncpy_s(_httpMessage, 512, message, strlen(message));
 }
 
 // not in concurrency mode yet, so I can use safely the singleton
