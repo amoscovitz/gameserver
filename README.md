@@ -1,5 +1,5 @@
-# gameserver
-c++ simple game server
+# samplegameserver
+c++ sample game server
 
 client/ folder contains well, client files:
 client.html => main page
