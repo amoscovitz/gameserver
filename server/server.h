@@ -169,7 +169,7 @@ public:
 	static const char* m_accessControlAllowOrigin;
 
 	HTTPMessage(){};
-	virtual ~HTTPMessage() { SAFE_DELETE(_httpMessageBody); }
+	virtual ~HTTPMessage() { SAFE_DELETE(_httpMessageBody); SAFE_DELETE(_httpMessage); }
 
 	virtual char* GetHttpMessageBody(){ return _httpMessageBody; }
 
