@@ -13,3 +13,5 @@ ServerWithLib.cpp => Source code for main server application
 server.cpp => server source code (Socket / HTTP / Game Events instantiation)
 event.cpp => event object class
 template.cpp => template used for events
+
+See it live at http://www.musimos.com/temp/client.html
