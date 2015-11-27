@@ -557,8 +557,8 @@ function manageEvents(){
 				break;
 			case eventsCode['MOVE']:
 			    var data = event['data'];
-				iax = data.substring(data.indexOf('='),data.indexOf(';'));
-				iay = data.substring(data.lastIndexOf('='));
+				iax = data.substring(data.indexOf('=')+1,data.indexOf(';'));
+				iay = data.substring(data.lastIndexOf('=')+1);
 			    break;
 			default:
 			    message = "default";	
