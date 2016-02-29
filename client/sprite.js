@@ -1,4 +1,16 @@
 // Sprite object
+var directions={
+   NORTH: 'N',
+   SOUTH: 'S',
+   EAST: 'E',
+   WEST: 'W',
+   NORTHWEST: 'NW',
+   SOUTHWEST: 'SW',
+   NORTHEAST: 'NE',
+   SOUTHEAST: 'SE'
+};
+
+
 (function() {
     function Sprite(name, url, pos, size, speed, speedRatio, frames, initFrame, oneloop) {
 		this.name = name;
