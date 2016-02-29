@@ -1,0 +1,161 @@
+<html>
+<head>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script type="text/javascript" src="sprite.js"></script>
+<script type="text/javascript" src="menu.js"></script>
+<script type="text/javascript" src="command.js"></script>
+</head>
+<body onload="init()">
+ </body>
+<script>
+
+var KEY_LEFT	= 37;
+var KEY_RIGHT	= 39;
+var canvas = document.createElement("canvas");
+var canvasCtx = canvas.getContext("2d");
+canvas.width = 13*77;
+canvas.height = 768;
+
+var viewport = document.createElement("canvas");
+var ctxvp = viewport.getContext("2d");
+viewport.width = 200;
+viewport.height = 200;
+viewport.tabIndex=1;
+viewport.addEventListener("keydown",doKeyDown);
+viewport.addEventListener("keyup",doKeyUp);
+
+var img = new Image();
+img.src = 'tail.PNG';
+
+var sb;
+var terrainPattern;
+var x=0;
+
+document.body.appendChild(viewport);
+
+var posRed={x:100,y:100};
+
+var playerSpeed = 15;
+var animSpeed=15;
+
+var animSpeedMenu=5;
+var debug=false;
+var message="";
+
+var mytimeout=300; // ms default
+
+var playerBlue;
+var playerRed;
+
+var players={
+  RED:0
+}
+window.InputEvent = null;
+
+function doKeyDown(e){
+    if (e.keyCode == KEY_LEFT){
+		x=x-5;
+		posRed.x=20;
+	}
+    else if (e.keyCode == KEY_RIGHT){
+	   x=x+5;
+	   posRed.x=133;
+	}		
+}
+
+function doKeyUp(e){
+  posRed.x= playerRed.playerPosx;
+}
+
+function update(dt){
+	if (x<0){
+	    // +---------+-------+---
+		// image width-vp width+adjust (13 + 4*5 steps)
+	    x=canvas.width-200-33;	       		
+	}
+	else if (x>canvas.width-200){
+	   x=0+33;	   
+	}
+	playerRed.update(dt,posRed);
+	playerRed.playerPosx=100;
+};
+
+function render(){
+		ctxvp.drawImage(canvas,x,50,200,200,0,0,200,200);
+		playerRedRender();	
+		ctxvp.font="14px Arial";
+		ctxvp.fillText("Press Left or Right keys",10,190);
+};
+
+function init() {
+
+terrainPattern = canvasCtx.createPattern(img, 'repeat');
+    canvasCtx.fillStyle=terrainPattern;
+	canvasCtx.fillRect(0,0,canvas.width,768);
+
+	ctxvp.drawImage(canvas,x,50,200,200,0,0,200,200);
+
+	
+	lastTime = Date.now();
+    sb = new Image();
+    sb.src = 'sbp.PNG';
+	var framesRed={
+	    length :4, 
+		animRight :[{pos :[32,32]},{pos :[2*32,32]},{pos :[3*32,32]},{pos :[4*32,32]}],
+		animLeft :[{pos :[17*32,32]},{pos :[18*32,32]},{pos :[19*32,32]},{pos :[20*32,32]}],
+		animUp :[{pos :[16*32,0]},{pos :[17*32,0]},{pos :[18*32,0]},{pos :[19*32,0]}],
+		animDown :[{pos :[9*32,32]},{pos :[10*32,32]},{pos :[11*32,32]},{pos :[12*32,32]}],
+		animLeftDown :[{pos :[13*32,32]},{pos :[14*32,32]},{pos :[15*32,32]},{pos :[16*32,32]}],
+		animLeftUp :[{pos :[21*32,32]},{pos :[22*32,32]},{pos :[0,32*2]},{pos :[32,32*2]}],
+		animRightUp :[{pos :[20*32,0]},{pos :[21*32,0]},{pos :[22*32,0]},{pos :[0,32]}],
+		animRightDown :[{pos :[5*32,32]},{pos :[6*32,32]},{pos :[7*32,32]},{pos :[8*32,32]}]
+	};
+
+	playerRed= new Sprite("Red", sb, [100, 100], [32, 32], animSpeed, playerSpeed, framesRed, [0,0],false);	
+	
+	main();
+}
+
+
+function setState(newstate){
+  state["previous"] = state["current"];
+  state["current"] = newstate;
+}
+
+var requestAnimFrame = (function(){
+	return window.requestAnimationFrame ||
+	window.webkitRequestAnimationFrame ||
+	window.mozRequestAnimationFrame ||
+	window.oRequestAnimationFrame ||
+	window.msRequestAnimationFrame ||
+	function(callback){
+		window.setTimeout(callback, 1000 / 60);
+	};
+})();
+
+var lastTime;
+
+/******************
+/* MAIN          */
+/*****************/
+function main() {
+    var now = Date.now();
+    var dt = (now - lastTime) / 1000.0;
+	update(dt);
+	render();
+	lastTime = now;
+    requestAnimFrame(main);
+};
+
+/* RED player*/
+function playerRedUpdate(dt){   
+	playerRed.update(dt,posRed);		
+}
+
+function playerRedRender(){
+	playerRed.render(ctxvp);
+}
+
+/* ******* */
+</script>
+</html>
