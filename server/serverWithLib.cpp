@@ -12,7 +12,7 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	cout << "Welcome" << endl;
 
-BaseSocketManager *m_pBaseSocketManager = GCC_NEW BaseSocketManager();
+        BaseSocketManager *m_pBaseSocketManager = GCC_NEW BaseSocketManager();
 	m_pBaseSocketManager->Init();
 	GameServerListenSocket *server = GCC_NEW GameServerListenSocket(2222);
 	server->VRegisterNetworkEvents();
