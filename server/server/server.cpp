@@ -10,6 +10,7 @@ const char *BinaryPacket::g_Type = "BinaryPacket";
 const char *TextPacket::g_Type = "TextPacket";
 const char *HTTPPacket::g_Type = "HTTPPacket";
 BaseSocketManager *g_pSocketManager = NULL;
+ActorManager *g_pActorManager = NULL;
 const int binaryProtocol = 0;
 const int bodysizemax = 64;
 
@@ -120,6 +121,7 @@ void NetSocket::VHandleOutput(){
 		std::shared_ptr<IPacket> pkt = *i;
 		const char *buf = pkt->VGetData();
 		int len = static_cast<int> (pkt->VGetSize());
+		printf("Send to socket=>%d data=>%c%c%c\n", m_id,buf[9], buf[10], buf[11]);
 		int rc = send(m_sock, buf, len, 0);
 		if (rc > 0){
 			g_pSocketManager->AddToOutBound(rc);
@@ -182,10 +184,15 @@ void NetSocket::VHandleInput(){
 	u_long packetSize = 0;
 	char metrics[1024];
 	int rc = recv(m_sock, m_recvBuf + m_recvBegin + m_recvOfs, RECV_BUFFER_SIZE - (m_recvBegin + m_recvOfs), 0);
-	sprintf_s(metrics, 1024, "Incoming: %6d bytes. Begin %6d Offset %4d Size %6d\n", rc, m_recvBegin, m_recvOfs, sizeof(m_recvBuf));	
+
+	if (rc == 0) {
+		return;
+	}
+
+	sprintf_s(metrics, 1024, "socket:%d Incoming: %6d bytes. Begin %6d Offset %4d Size %6d\n", m_id,rc, m_recvBegin, m_recvOfs, sizeof(m_recvBuf));	
 	printf_s(metrics);
 	
-	if (rc == SOCKET_ERROR || rc == 0){
+	if (rc == SOCKET_ERROR){
 		m_delete_flag = 1;
 		return;
 	}
@@ -304,6 +311,7 @@ void BaseSocketManager::Shutdown(){
 }
 
 int BaseSocketManager::AddSocket(NetSocket *socket){
+	printf("Add socket %d\n", m_NextSocketId);
 	socket->m_id = m_NextSocketId;
 	m_SockMap[m_NextSocketId] = socket;
 	++m_NextSocketId;
@@ -315,6 +323,7 @@ int BaseSocketManager::AddSocket(NetSocket *socket){
 }
 
 void BaseSocketManager::RemoveSocket(NetSocket *socket){
+	printf("Remove socket %d\n", socket->m_id);
 	m_SockList.remove(socket);
 	m_SockMap.erase(socket->m_id);
 	SAFE_DELETE(socket);
@@ -410,13 +419,12 @@ void BaseSocketManager::DoSelect(int pauseMicroSecs, int handleInput){
 			pSock->VTimeOut();
 		}
 
-		if (pSock->m_delete_flag & 1){
+		if (pSock->m_delete_flag & 5){
 			switch (pSock->m_delete_flag){
 				case 1:
 					g_pSocketManager->RemoveSocket(pSock);
 					i = m_SockList.begin();
 					continue;
-					//break;
 				case 3:
 					pSock->m_delete_flag = 2;
 					if (pSock->m_sock != INVALID_SOCKET){
@@ -424,6 +432,10 @@ void BaseSocketManager::DoSelect(int pauseMicroSecs, int handleInput){
 						pSock->m_sock = INVALID_SOCKET;
 					}
 					break;
+				case 4:
+					pSock->m_delete_flag = 1;
+					break;
+
 			}
 		}
 		++i;
@@ -497,14 +509,14 @@ int getHTTPRequestMethod(char const* const message){
 		return -1;
 	}
 	if (!strncmp(message, "GET", 3)){
-		return HTTPMessage::request_method::RM_GET;
+		return request_method::RM_GET;
 	}else if (!strncmp(message, "POST", 4)){
-		return HTTPMessage::request_method::RM_POST;
+		return request_method::RM_POST;
 	}
 	return -1;
 }
 
-char const* const getHTTPRequestBody(char const* const message){
+char const* const getHTTPRequestPostBody(char const* const message){
 	// static must be thread safe in concurrent mode
 	static char body[64];
 	
@@ -525,37 +537,42 @@ char const* const getHTTPRequestBody(char const* const message){
 	return body;
 }
 
+char const* const getHTTPRequestGetBody(char const* const message) {
+	// static must be thread safe in concurrent mode
+	static char s_bodyget[64];
+	int start = 0;
+	int j = 0;
+	if (message == 0) {
+		return NULL;
+	}
 
-/**
-* This function should be part of the AI Actor when Move event is received
-*/
- char const* const buildNewCoordHttpMessage(){
-	// calculate new coord random (great AI !)
-	char xbuf[4];
-	char ybuf[4];
-
-	int random = rand();
-	int x = random % 512;// TODO: (max X) 512 must be init by first HTTP message
-	int y = random % 480;// TODO: (max Y) 480 must be init by first HTTP message
-
-	_itoa_s(y, ybuf, 10);
-	_itoa_s(x, xbuf, 10);
-	char data[64];
-	sprintf_s(data, 64, "x=%s;y=%s", xbuf, ybuf);
-
-	HTTPResponseBuilder::GetSingleton().CreateHttpMessage();
-	HTTPResponseBuilder::GetSingleton().SetMessageBody(data);
-	HTTPResponseBuilder::GetSingleton().SetMessageResponse(HTTPMessage::reponse_code_t::OK);
-	HTTPResponseBuilder::GetSingleton().BuildHttpMessage();
-
-	const char* httpMessage = HTTPResponseBuilder::GetSingleton().GetHttpMessage();
-
-	return httpMessage;
+	// isolate parameters from full message
+	for (int i = 0; i < strlen(message); ++i) {
+		if (start == 1) {
+			// replace %20 by space and take until what first space
+			if (message[i] == ' ') {
+				break;
+			}else if (message[i] == '%') {
+				s_bodyget[j] = ' ';
+				++j;
+				i += 2;
+			}
+			else {
+				s_bodyget[j] = message[i];
+				++j;
+			}
+		}
+		if (message[i] == '?') {
+			start = 1;
+		}
+	}
+	s_bodyget[strlen(s_bodyget)] = '\0';
+	return s_bodyget;
 }
 
 //Event socket
 void RemoteEventSocket::VHandleInput(){
-	NetSocket::VHandleInput();
+	NetSocket::VHandleInput();	
 	// get packets and make something with it
 	while (!m_InList.empty()){
 		std::shared_ptr<IPacket> packet = *m_InList.begin();
@@ -588,11 +605,11 @@ void RemoteEventSocket::VHandleInput(){
 			const char *buf = packet->VGetData();
 			int httpMethod = getHTTPRequestMethod(buf);
 			switch (httpMethod){
-				case HTTPMessage::request_method::RM_POST:
+				case request_method::RM_POST:
 				{
 					printf("POST =>");
 					// extract body information (from last but one \r\n to last \r\n) to generate a specific Event
-					const char *payload = getHTTPRequestBody(buf);
+					const char *payload = getHTTPRequestPostBody(buf);
 					if (payload==0){
 						return;
 					}
@@ -603,47 +620,61 @@ void RemoteEventSocket::VHandleInput(){
 					if (pEvent)
 					{
 						pEvent->VDeserialize(in);
+						pEvent->VSetIp(NetSocket::GetIpAddress()); //used to create unique ActorId and so Unity can call by name without knowing the ActorId 
 						printf("%ld\n",pEvent->VGetEventType());
-						IEventManager::Get()->VQueueEvent(pEvent); // TODO MessageEventManager
-						SendHttpResponse(HTTPMessage::reponse_code_t::OK);
+						IEventManager::Get()->VTriggerEvent(pEvent);
+						SendHttpResponse(http_response_code_t::CREATED);
 					}
 					else
-					{
-						printf("unknown\n");
-						SendHttpResponse(HTTPMessage::reponse_code_t::SERVERNOTAVAILABLE);
-						printf("send ");
+					{						
+						SendHttpResponse(http_response_code_t::BADREQUEST);
 						const int max = 16;
 						char str[max];
 						memset(str, 0, max);
 						_itoa_s(eventType, str, max, 10);
-						printf("error\n");
 						GCC_ERROR("ERROR Unknown event type from remote: 0x" + std::string(str));
 					}
 					break;
 				}
-				case HTTPMessage::request_method::RM_GET:
+				case request_method::RM_GET:
 				{
-					// ******************************************
-					// This code should move to the game AI actor 
-					// that would trigger a move event back to the client
-					// when a MOVE event is received in POST message
-					// IA reacts by moving randomly (Which is the blue player in client)
-				    // For now the GET with whatever in it will do the trick
-					// ******************************************
 					printf("GET =>");
 
-					const char *httpMessage = buildNewCoordHttpMessage();
-					IPacket *packetBack = GCC_NEW HTTPPacket(httpMessage);
-					std::shared_ptr<IPacket> ipBack(packetBack);
-					printf("Send\n");
-					Send(ipBack);
+					// Add sock id to event
+					const char *payload = getHTTPRequestGetBody(buf);
+					if (payload == 0) {
+						return;
+					}
+					std::istrstream in(payload, strlen(payload));
+					EventType eventType;
+					in >> eventType;
+					IEventDataPtr pEvent(CREATE_EVENT(eventType));
+					if (pEvent)
+					{
+						pEvent->VDeserialize(in);
+						pEvent->VSetIp(NetSocket::GetIpAddress()); 
+						printf("Server add socket %d to event\n", NetSocket::GetSockId());
+						pEvent->VSetSocketId(NetSocket::GetSockId());
+						printf("%ld\n", pEvent->VGetEventType());
+						IEventManager::Get()->VTriggerEvent(pEvent); 
+						// Response must be sent by Event because we don't know at this point if it will succeed or failed
+					}
+					else
+					{
+						SendHttpResponse(http_response_code_t::BADREQUEST);
+						const int max = 16;
+						char str[max];
+						memset(str, 0, max);
+						_itoa_s(eventType, str, max, 10);
+						GCC_ERROR("ERROR Unknown event type from remote: 0x" + std::string(str));
+					}					
 					break;
 				}
 				default:
 				{
 					printf("Unkown message type\n");
 					GCC_ERROR("Unkown message type");
-					SendHttpResponse(HTTPMessage::reponse_code_t::SERVERNOTAVAILABLE);
+					SendHttpResponse(http_response_code_t::BADREQUEST);
 				}
 			}
 		}
@@ -653,9 +684,12 @@ void RemoteEventSocket::VHandleInput(){
 	}
 }
 
-void NetSocket::SendHttpResponse(HTTPMessage::reponse_code_t response_code){
+void NetSocket::SendHttpResponse(http_response_code_t response_code,char* payload){
 	HTTPResponseBuilder::GetSingleton().CreateHttpMessage();
 	HTTPResponseBuilder::GetSingleton().SetMessageResponse(response_code);
+	if (payload != 0) {
+		HTTPResponseBuilder::GetSingleton().SetMessageBody(payload);
+	}
 	HTTPResponseBuilder::GetSingleton().BuildHttpMessage();
 	const char* httpMessage = HTTPResponseBuilder::GetSingleton().GetHttpMessage();
 	IPacket *packetBack = GCC_NEW HTTPPacket(httpMessage);
@@ -775,9 +809,14 @@ int BaseSocketManager::GetIpAddress(int sockId)
 
 void GameServerListenSocket::VRegisterNetworkEvents(void)
 {
+	REGISTER_EVENT(EventData_CreateActor);
+	REGISTER_EVENT(EventData_GetActor);
 	REGISTER_EVENT(EventData_MoveActor);
 	REGISTER_EVENT(EventData_EndActor);
 	REGISTER_EVENT(EventData_ScoreActor);
+	REGISTER_EVENT(EventData_GetNewPositionActor);
+	REGISTER_EVENT(EventData_ResponseHTTP);
+	REGISTER_EVENT(EventData_CloseSocketHTTP);
 }
 
 //HTTP Message routines
@@ -795,11 +834,11 @@ void HTTPResponseBuilder::CreateHttpMessage(){
 	_httpResult = new HTTPMessageResponse();
 }
 
-void HTTPResponseBuilder::SetMessageBody(char* data){
+void HTTPResponseBuilder::SetMessageBody(const char* data){
 	_httpResult->SetHttpData(data);
 }
 
-void HTTPResponseBuilder::SetMessageResponse(HTTPMessage::reponse_code_t response){
+void HTTPResponseBuilder::SetMessageResponse(http_response_code_t response){
 	_httpResult->SetHttpResponseCode(response);
 }
 
@@ -816,10 +855,13 @@ void HTTPResponseBuilder::BuildHttpMessage(){
 	str.append(_httpResult->m_head);
 	str.append(" ");
 	switch (_httpResult->getResponseCode()){
-		case HTTPMessageResponse::OK:
+		case http_response_code_t::OK:
 			str.append("200 OK");
 			break;
-		case HTTPMessageResponse::NOTFOUND:
+		case http_response_code_t::CREATED:
+			str.append("201 CREATED");
+			break;
+		case http_response_code_t::NOTFOUND:
 			str.append("404 NOT FOUND");
 			break;
 		default:
@@ -864,15 +906,14 @@ void HTTPResponseBuilder::BuildHttpMessage(){
 	}
 	str.append("\0");
 
-	std::vector<char> writable(str.begin(), str.end());
-	writable.push_back('\0');
-	
 	_httpResult->SetHttpMessage(str.c_str());
 }
 
 void HTTPMessage::SetHttpMessage(const char* message){
 	_httpMessage = GCC_NEW char[512];
+	ZeroMemory(_httpMessage,512);
 	strncpy_s(_httpMessage, 512, message, strlen(message));
+	_httpMessage[strlen(message) + 1] = '\0';
 }
 
 // not in concurrency mode yet, so I can use safely the singleton

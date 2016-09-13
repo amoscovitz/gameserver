@@ -2,6 +2,9 @@
 
 #include <string>
 
+#include "..\ThirdPart\FastDelegate.h"
+using fastdelegate::MakeDelegate;
+
 // in  Msvc/GameCodeStd.h to put in include c++
 #if !defined(SAFE_DELETE)
 #define SAFE_DELETE(x) if(x) delete x; x=NULL;
@@ -64,4 +67,35 @@ namespace Logger
 
 #define END_OF_LINE "\r\n"
 
+typedef unsigned int ActorId;
 
+typedef struct D3DXVECTOR3 {
+	float x;
+	float y;
+	float z;
+} D3DXVECTOR3, *LPD3DXVECTOR3;
+
+class Vec3 : public D3DXVECTOR3 {
+public:
+	Vec3() :D3DXVECTOR3() {}
+	Vec3(const float _x, const float _y, const float _z) { x = _x; y = _y; z = _z; }
+};
+
+enum request_method {
+	RM_GET,
+	RM_POST,
+	RM_PUT,
+	RM_DELETE,
+	RM_HEAD,
+	RM_TRACE,
+	RM_CONNECT,
+	RM_OPTIONS
+};
+
+enum http_response_code_t {
+	OK = 200,
+	CREATED = 201,
+	BADREQUEST = 400,
+	NOTFOUND = 404,
+	SERVERNOTAVAILABLE = 500
+};
