@@ -17,7 +17,7 @@ bool EventManager::VAddListener(const EventListenerDelegate& eventDelegate, cons
 
 	for (auto it = eventListenerList.begin(); it != eventListenerList.end(); ++it){
 		if ((*it) == eventDelegate){
-			//TODO WARNING : adding twice same delegate
+			//TODO dispaly WARNING : adding twice same delegate
 			return false;
 		}
 	}
@@ -36,7 +36,7 @@ bool EventManager::VRemoveListener(const EventListenerDelegate& eventDelegate, c
 		EventListenerList& eventListenerList = findIt->second;
 		for (auto it = eventListenerList.begin(); it != eventListenerList.end(); ++it){
 			if ((*it) == eventDelegate){
-				//TODO WARNING : deleted
+				//TODO display WARNING : deleted
 				eventListenerList.erase(it);
 				success = true;
 				break;
@@ -48,7 +48,22 @@ bool EventManager::VRemoveListener(const EventListenerDelegate& eventDelegate, c
 }
 
 bool EventManager::VTriggerEvent(const IEventDataPtr& pEvent){
-	//TODO implementation
+	if (!pEvent) {
+		GCC_ERROR("Event Invalid");
+		return false;
+	}
+	// check is someone is listening for that event
+	auto findIt = m_eventListeners.find(pEvent->VGetEventType());
+	if (findIt != m_eventListeners.end()) {
+		const EventListenerList& eventListeners = findIt->second;
+		for (auto it = eventListeners.begin(); it != eventListeners.end(); ++it)
+		{
+			EventListenerDelegate listener = (*it);
+			printf("\nTrigger event %s to listener\n", pEvent->GetName());
+			// call each listener
+			listener(pEvent);
+		}
+	}
 	return true;
 }
 
@@ -61,12 +76,12 @@ bool EventManager::VQueueEvent(const IEventDataPtr& pEvent){
 		return false;
 	}
 
-	// check is someone is listeneing for that event
+	// check is someone is listening for that event
 	auto findIt = m_eventListeners.find(pEvent->VGetEventType());
 	if (findIt != m_eventListeners.end()){
 		// m_activeQueue is switched by VUpdate
 		m_queues[m_activeQueue].push_back(pEvent);
-		printf("Event queued %s", pEvent->GetName());
+		printf("Event queued %s\n", pEvent->GetName());
 		return true;
 	}
 
@@ -137,7 +152,7 @@ bool EventManager::VUpdate(unsigned long maxMillis){
 			for (auto it = eventListeners.begin(); it != eventListeners.end(); ++it)
 			{
 				EventListenerDelegate listener = (*it);
-				printf("send event %s to listener", pEvent->GetName());
+				printf("\nsend event %s to listener\n", pEvent->GetName());
 				// call each listener
 				listener(pEvent);
 			}

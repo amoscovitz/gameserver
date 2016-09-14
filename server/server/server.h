@@ -11,6 +11,7 @@
 #include <map>
 #include <strstream>
 #include "../misc/GameCodeStd.h"
+#include "../actors/Actors.h"
 
 class IPacket{
 	public:
@@ -80,7 +81,7 @@ inline void BinaryPacket::MemCpy(char const * const data, size_t size, int destO
 // Common HTTP attributes
 class HTTPMessage{
 public:
-	enum request_method{
+	/*enum request_method{
 		RM_GET,
 		RM_POST,
 		RM_PUT,
@@ -93,9 +94,11 @@ public:
 
 	enum reponse_code_t{
 		OK = 200,
+		CREATED = 201,
+		BADREQUEST = 400,
 		NOTFOUND = 404,
 		SERVERNOTAVAILABLE = 500
-	};
+	};*/
 
 	static const char* m_head;
 	static const char* m_dateOrigin;
@@ -111,13 +114,13 @@ public:
 	HTTPMessage(){};
 	virtual ~HTTPMessage() { SAFE_DELETE(_httpMessageBody); SAFE_DELETE(_httpMessage); }
 
-	virtual char* GetHttpMessageBody(){ return _httpMessageBody; }
+	virtual const char* GetHttpMessageBody(){ return _httpMessageBody; }
 
-	virtual void SetHttpData(char* data){ _httpMessageBody = data; }
+	virtual void SetHttpData(const char* data){ _httpMessageBody = data; }
 
-	virtual void SetHttpResponseCode(reponse_code_t responseCode){ _responseCode = responseCode; }
+	virtual void SetHttpResponseCode(http_response_code_t responseCode){ _responseCode = responseCode; }
 
-	virtual reponse_code_t getResponseCode(){ return _responseCode; }
+	virtual http_response_code_t getResponseCode(){ return _responseCode; }
 
 	virtual char* GetHttpMessage(){ return _httpMessage; }
 
@@ -125,8 +128,8 @@ public:
 
 
 protected:
-	char* _httpMessageBody;
-	reponse_code_t _responseCode;
+	const char* _httpMessageBody;
+	http_response_code_t _responseCode;
 	char* _httpMessage;
 };
 
@@ -143,9 +146,12 @@ public:
 
 	bool Connect(unsigned int ip, unsigned int port, bool forceCoalesce = 0);
 	void SetBlocking(bool blocking);
-	void SendHttpResponse(HTTPMessage::reponse_code_t reponse_code);
+	
+	// Create an HTTPNetSocket class to move those functions, they do not belong here
+	void SendHttpResponse(http_response_code_t reponse_code, char* response_body = 0);
+	bool IsHttpRequest(const char* message);
+	//
 	void Send(std::shared_ptr<IPacket> pkt, bool clearTimeout = 1);
-
 	virtual int VHasOutput(){ return !m_OutList.empty(); }
 	virtual void VHandleOutput();
 	virtual void VHandleInput();
@@ -153,7 +159,9 @@ public:
 	void HandleException(){ m_delete_flag |= 1; }
 	void SetTimeOut(unsigned int ms = 45 * 1000){ m_timeout = timeGetTime() + ms; }
 	int GetIpAddress(){ return m_ipaddr; }
-	bool IsHttpRequest(const char* message);
+	int GetSockId() { return m_id; }
+	void SetSocketDelete(int flag) { m_delete_flag = flag; }
+	
 protected:
 	SOCKET m_sock;
 	int m_id;
@@ -176,7 +184,6 @@ protected:
 };
 
 
-
 class BaseSocketManager{
 protected:
 	WSADATA m_WsaData; // socket system impl.
@@ -196,7 +203,6 @@ protected:
 	unsigned int m_Subnet;
 	unsigned int m_SubnetMask;
 
-	NetSocket *FindSocket(int sockId);
 
 public:
 	BaseSocketManager();
@@ -224,10 +230,11 @@ public:
 	void AddToOutBound(int rc){ m_outBound += rc; }
 	void AddToInBound(int rc){ m_inBound += rc; }
 	
+	NetSocket *FindSocket(int sockId);
 
 };
 
-// declare g_pSocketManager but not init
+// declare g_pSocketManager but not init, done in constructor of BaseSocketManager
 extern BaseSocketManager *g_pSocketManager;
 
 //client
@@ -278,9 +285,6 @@ public:
 	//client attach to server
 	RemoteEventSocket(){};
 	virtual void VHandleInput();
-
-protected:
-	void CreateEvent(std::istrstream &in);
 };
 
 // Build a full response message from input parameters
@@ -298,9 +302,9 @@ public:
 
 	virtual void CreateHttpMessage() =0;
 
-	virtual void SetMessageBody(char* data) = 0;
+	virtual void SetMessageBody(const char* data) = 0;
 
-	virtual void SetMessageResponse(HTTPMessage::reponse_code_t messageReponse) = 0;
+	virtual void SetMessageResponse(http_response_code_t messageReponse) = 0;
 
 	virtual void BuildHttpMessage() = 0;
 
@@ -321,9 +325,9 @@ public:
 
 	void CreateHttpMessage();
 
-	void SetMessageBody(char* data);
+	void SetMessageBody(const char* data);
 
-	void SetMessageResponse(HTTPMessage::reponse_code_t messageReponse);
+	void SetMessageResponse(http_response_code_t messageReponse);
 
 	void BuildHttpMessage();
 

@@ -11,7 +11,60 @@ canvas {
 </style>
 </head>
 <body onload="init()">
-</body>
+<div id="title">
+<b>This is Arnaud Moscovitz client/server sample project</b><br>
+I did a simple server game oriented in C++ based on the book "Coding complete 4th edition". That includes Non blocking I/O and a Game event manager.I have added the HTTP communication and some design patterns just for showing<br>
+As a client I wanted to try the basics for a game in HTML5 (PC and mobile). So here it is. Based on the website of <a href="http://jlongster.com/Making-Sprite-based-Games-with-Canvas">jlongster</a><br>
+There is plenty of improvements to make either on client or server that I am aware of. But as you know, you have to deliver something at a time. That is why I insist on the word :<i>"sample"</i>.<br>
+Few things in my mind:<br>
+-Client: Make it in Unity! Else in HTML adding levels and items to pick on the map, websocket communication and security. And why not a multiplayer approach (Bomberman like)<br>
+-Server: Adding actors/managers and the multiplayer mode (Concurrency dev approach). Actually I work on the actor and actor manager to make it work with my Unity sample (below)
+<br>The code needs some const-ness and magic numbers reinforcement. 
+<p>
+Add timeout parameter in url to change ajax request timeout i.e : <i>client.html?timeout=5000</i> for 5secs<br>
+</p>
+</div>
+<div id="archi">
+<p>
+<b>Actual architecture:</b><br>
+(Musimos.com)HTML5 Ajax with jquery HTTPRequest when click ====> (Personal computer) HttpRequest C++ server <br>
+ move Blue guy with x,y <==== HttpResponse random x,y <br>
+ Client/server source code available here : <a href='https://github.com/amoscovitz/samplegameserver'>GitHub</a>
+</p>
+</div>
+<div id="game">
+<table>
+	<tr>
+		<td id="game1"></td>
+		<td id="game2" align="center" width="100%">
+			<a href="clientscroll.html"  target="_blank">
+		     <img src='scroll.PNG'>
+			 </a><br>
+			 <b>Infinite scrolling. Click to open</b>
+		</td>
+	</tr>
+</table>
+</div>
+<div id="note">
+<p>
+Server is hosted on my personal computer and may be down at any time. Client simulates x,y then.
+</p>
+</div>
+<div id="unity">
+<p>
+<b>Here is some advancement with the Unity part</b>
+</p>
+<p>
+I have started a shadow character that moves to a flag on the map that will be the next position from the HTML5 client.<br>
+Next step is to update the flag position from the position saved by the game server.
+The c++ server will store the last position sent from the HTML5 game client for a given socket that includes the IP (Map usage).
+I am using the HTTP Api of Unity to communicate with the server.
+</p>
+<p>
+<img src='unity.JPG'/>
+</p>
+</div>
+ </body>
 <script>
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
@@ -25,7 +78,7 @@ canvas.addEventListener('touchend', function(event) {isTouchmove=false;}, false)
 
 img = new Image();
 img.src = 'tail.PNG';
-document.body.insertBefore(canvas,document.getElementById("archi"));
+document.getElementById("game1").appendChild(canvas);
 
 var sb;
 var img;
@@ -37,10 +90,11 @@ var playerSpeed = 15;
 var animSpeed=15;
 
 var animSpeedMenu=5;
-var debug=false;
+var debug=true;
 var message="";
 
-var mytimeout=300; // ms default
+//var mytimeout=300; // ms default
+var mytimeout=30000; // ms default
 
 var playerBlue;
 var playerRed;
@@ -73,8 +127,8 @@ var inputBinder={
 };
 
 var players={
-  RED:0,
-  BLUE:1
+  RED:{id :-1,name:'RED'},
+  BLUE:{id :-1,name:'BLUE'}
 }
 
 var spriteBall;
@@ -90,8 +144,11 @@ var framesRedFireE;
 var events=[];
 var receivedEvents=[];
 
+
 var eventsCode={
-GETMOVE :0,
+CREATEPLAYER : 515771650,
+GETPLAYERDATA : 515771651,
+GETMOVE :515771652,
 TIMEOUT :1,
 MOVE    :515771649,
 SCORE   :2994948032,
@@ -126,13 +183,15 @@ function doMouseDown(event){
 		//ask server to get blue move
 		events.push({eventid:eventsCode['GETMOVE'],
 					  type:'GET',
-		              player:players['BLUE'],
-					  data:'0'});
-		//inform server red will move
+					  playerid:players['BLUE'].id,
+		              player:players['BLUE'].name,
+					  data:null});
+		//inform server red move
 		events.push({eventid:eventsCode['MOVE'],
 					  type:'POST',
-		              player:players['RED'],
-					  data:pos.x+' '+pos.y});
+					  playerid:players['RED'].id,
+		              player:players['RED'].name,
+					  data:pos.x+' '+pos.y+' 0.0'});
 	}
 }
 
@@ -406,13 +465,16 @@ function sendEvent(event){
 					  data:'0']);*/
     var httpRequestType = (event['type'] == null)?'POST':event['type'];
 	var eventid = event['eventid'];
-	var player = event['player'];
+	var playerid = (event['playerid']==null)?-1:event['playerid'];
+	var playername = event['player'];
 	var data = event['data'];
-	var fullData = eventid;
+	var fullData = eventid+' '+playerid+' '+playername;
 	if (data != null && data != ''){
-	 fullData += ' '+data;	
+	 fullData += ' '+data+ '#';	
+	}else{
+	  fullData += ' #';	
 	}
-	fullData += ' '+player;
+	if (debug){console.debug('Send event:'+httpRequestType+' '+fullData)};
 	// TODO: IP to move in a PHP function on the server
 	$.ajax({
        url : 'http://78.237.108.215:2222/',
@@ -422,17 +484,23 @@ function sendEvent(event){
 	   data : fullData,
 	   timeout : mytimeout,
 	    success : function(code_html, statut){
-		   var newevent = {eventid:eventsCode['MOVE'],
-					  type:'POST',
-		              player:players['BLUE'],
+		  if (code_html != null && code_html!=''){
+		  // send back same event but as a response for the client to treat
+		   var newevent = {eventid:eventid,
+					  type:'RESPONSE',
+					  playerid:playerid,
+					  player:playername,
 					  data:code_html};
 		   receivedEvents.push(newevent);
-	       message = "Server answered : "+code_html;
+		     if (debug){ console.info('Received :'+code_html);}
+		   }
+	       
        },
        error : function(resultat, statut, erreur){
 		    var newevent = {eventid:eventsCode['TIMEOUT'],
-					  type:'POST',
-		              player:players['BLUE'],
+					  type:'RESPONSE',
+					  playerid:playerid,
+					  player:playername,
 					  data:null};
 			receivedEvents.push(newevent);
        }
@@ -479,6 +547,7 @@ function main() {
     var dt = (now - lastTime) / 1000.0;
 	switch (state.current){
 	    case state["INIT"]:
+		console.info('init');
 			playerBlueKO.done = false;
 			playerRedKO.done = false;
 			playerRed.fx=0;
@@ -493,7 +562,40 @@ function main() {
 			spriteBall.picked=false;
 			receivedEvents = [];
 			events = [];
-			setState(state["PLAYING"]);
+			//inform server to create players 
+			console.info('initRED:'+players['RED'].id+' '+players['RED'].name );
+			if (players['RED'].id == -1){
+				events.push({eventid:eventsCode['CREATEPLAYER'],
+					  type:'POST',
+					  playerid:players['RED'].id,
+		              player:players['RED'].name,
+					  data:playerRed.fx+' '+playerRed.fy+' 0.0'});
+					  
+				events.push({eventid:eventsCode['GETPLAYERDATA'],
+					  type:'GET',
+					  playerid:players['RED'].id,
+		              player:players['RED'].name,
+					  data:null});
+			}else{
+			  // TODO send event with initial pos to the server
+			}
+			if (players['BLUE'].id == -1){
+				events.push({eventid:eventsCode['CREATEPLAYER'],
+					  type:'POST',
+					  playerid:players['BLUE'].id,
+		              player:players['BLUE'].name,
+					  data:playerBlue.fx+' '+playerBlue.fy+' 0.0'});
+				events.push({eventid:eventsCode['GETPLAYERDATA'],
+					  type:'GET',
+					  playerid:players['BLUE'].id,
+		              player:players['BLUE'].name,
+					  data:null});
+
+		    }else{
+			  // TODO send event with initial pos to the server
+			}
+            // TODO : setState must be done when server answered
+		    setState(state["PLAYING"]);
 			break;
 		case state["MENU"]:
 			menu.update(dt);
@@ -534,23 +636,37 @@ function manageEvents(){
 	
 	for(var i=0; i<receivedEvents.length; i++) {
 		var event = receivedEvents.splice(i,1)[0];
-		// for this sample, only one event returned so just deal like that for now
-		// In real life, blue actor should listen to events and deal with that.
+		// for this sample, events are deserialized here but
+		// But actors should listen to events and deal with them.
 		var iax,iay;
 		if (debug){ console.info('event["eventid"]:'+event.eventid);}
 		switch (event['eventid']){
 			case eventsCode['TIMEOUT']:
 				iax = Math.floor(Math.random() * 1000)%canvas.width;
 				iay = Math.floor(Math.random() * 1000)%canvas.height;
-				message = state.current+" Timeout from server. Client : x="+iax+";y="+iay;	
+				if (debug){ console.info("Request Timeout. x="+iax+";y="+iay);
+				//message = "Request Timeout. x="+iax+";y="+iay;	
 				break;
-			case eventsCode['MOVE']:
-			    var data = event['data'];
-				iax = data.substring(data.indexOf('=')+1,data.indexOf(';'));
-				iay = data.substring(data.lastIndexOf('=')+1);
+			case eventsCode['GETMOVE']:
+			    //Trame example 1#BLUE#22.000#342.000#0.000
+			    var data = event['data'].split('#');
+				// received 
+				if (data[1]=='BLUE'){
+					iax = data[2];
+					iay = data[3];				
+					if (debug){ console.debug('GETMOVE received x:'+iax+' y:'+iay);}
+				}
 			    break;
+			case eventsCode['CREATEPLAYER']:
+				break;
+			case eventsCode['GETPLAYERDATA']:
+			    var data = event['data'].split('#');
+				players[data[1]].id=data[0];
+				// todo set pos values ?
+				if (debug){ console.info('GETPLAYERDATA received :'+data);}
+				break;
 			default:
-			    message = "default";	
+			    //message = "default";	
 				break;
 		}
 		posBlue.x = iax;
@@ -712,7 +828,8 @@ function update(dt){
 
 			playerBlueKO.playerPosx = playerBlue.playerPosx;
 			playerBlueKO.playerPosy = playerBlue.playerPosy;
-			message = "hit, return to base!";
+			if (debug) console.info("hit, return to base!");
+			//message = "hit, return to base!";
 			if  (!!icecreamAudio.canPlayType && icecreamAudio.canPlayType('audio/wav') != ""){
 				icecreamAudio.play();
 			}
@@ -751,10 +868,10 @@ function render(){
 	ctx.fillText("Score: " +score, canvas.width-(18*6), 18);
 	
 	if (debug){
-		ctx.font = '18pt Calibri';
-		ctx.fillStyle = 'black';
-		ctx.textAlign = "left";
-		ctx.fillText("Message =" +message, 0, canvas.height-20);
+		//ctx.font = '18pt Calibri';
+		//ctx.fillStyle = 'black';
+		//ctx.textAlign = "left";
+		//ctx.fillText("Message =" +message, 0, canvas.height-20);
 	}
 };
 
