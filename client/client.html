@@ -17,11 +17,13 @@ I did a simple server game oriented in C++ based on the book "Coding complete 4t
 As a client I wanted to try the basics for a game in HTML5 (PC and mobile). So here it is. Based on the website of <a href="http://jlongster.com/Making-Sprite-based-Games-with-Canvas">jlongster</a><br>
 There is plenty of improvements to make either on client or server that I am aware of. But as you know, you have to deliver something at a time. That is why I insist on the word :<i>"sample"</i>.<br>
 Few things in my mind:<br>
--Client: Make it in Unity! Else in HTML adding levels and items to pick on the map, websocket communication and security. And why not a multiplayer approach (Bomberman like)<br>
--Server: Adding actors/managers and the multiplayer mode (Concurrency dev approach). Actually I work on the actor and actor manager to make it work with my Unity sample (below)
-<br>The code needs some const-ness and magic numbers reinforcement. 
+-Client: Make it in Unity! And why not a multiplayer approach (Bomberman like)<br>
+-Server: Multiplayer mode (Concurrency dev approach). 
+<br>The code needs some const-ness and magic numbers reinforcement. I did not manage yet requests order in the server.
+<br>Client has light event management
 <p>
 Add timeout parameter in url to change ajax request timeout i.e : <i>client.html?timeout=5000</i> for 5secs<br>
+Browser console is used for messages output<br>
 </p>
 </div>
 <div id="archi">
@@ -93,8 +95,7 @@ var animSpeedMenu=5;
 var debug=true;
 var message="";
 
-//var mytimeout=300; // ms default
-var mytimeout=30000; // ms default
+var mytimeout=300; // ms default
 
 var playerBlue;
 var playerRed;
@@ -263,28 +264,31 @@ function init() {
 	playerRed= new Sprite("Red", sb, [0, 0], [32, 32], animSpeed, playerSpeed, framesRed, [0,0],false);
 	playerRed.isFiring=false;
 	playerRed.fire =function(){
+		if (state.current==state["PLAYING"])
+		{
 		 if (spriteBall.isPicked()){
-		    this.stop();
+			this.stop();
 			switch (playerRed.currentDirection){
-			    case directions['NORTH']:
-				    playerFireRed.frames = framesRedFireN;
+				case directions['NORTH']:
+					playerFireRed.frames = framesRedFireN;
 					break;
-			    case directions['SOUTH']:
-				    playerFireRed.frames = framesRedFireS;
+				case directions['SOUTH']:
+					playerFireRed.frames = framesRedFireS;
 					break;
-			    case directions['EAST']:
-				    playerFireRed.frames = framesRedFireE;
+				case directions['EAST']:
+					playerFireRed.frames = framesRedFireE;
 					break;
-			    case directions['WEST']:
-				    playerFireRed.frames = framesRedFireW;
+				case directions['WEST']:
+					playerFireRed.frames = framesRedFireW;
 					break;
 			}
 			playerRed.isFiring=true;
 			// give ball coordinate to start + direction and force to apply
 			spriteBall.fire([this.playerPosx, this.playerPosy],this.currentDirection,200);
 		 }else{
-		 	console.info("No ball");
+			console.info("No ball");
 		 }
+		}
 	}
 	
 	playerRed.stop =function(){
@@ -310,9 +314,11 @@ function init() {
 	}
 		
 	playerRed.move =function(){
-		var rect = canvas.getBoundingClientRect();
-		posRed.x=Math.round((this.event.clientX-rect.left)/(rect.right-rect.left)*canvas.width);
-		posRed.y=Math.round((this.event.clientY-rect.top)/(rect.bottom-rect.top)*canvas.height);		
+	   if (state.current==state["PLAYING"]){
+			var rect = canvas.getBoundingClientRect();
+			posRed.x=Math.round((this.event.clientX-rect.left)/(rect.right-rect.left)*canvas.width);
+			posRed.y=Math.round((this.event.clientY-rect.top)/(rect.bottom-rect.top)*canvas.height);		
+		}
 	//	console.info("Red x:"+posRed.x+" y:"+posRed.y);
 	}
 	
@@ -644,7 +650,7 @@ function manageEvents(){
 			case eventsCode['TIMEOUT']:
 				iax = Math.floor(Math.random() * 1000)%canvas.width;
 				iay = Math.floor(Math.random() * 1000)%canvas.height;
-				if (debug){ console.info("Request Timeout. x="+iax+";y="+iay);
+				if (debug){ console.info("Request Timeout. x="+iax+";y="+iay)};
 				//message = "Request Timeout. x="+iax+";y="+iay;	
 				break;
 			case eventsCode['GETMOVE']:
@@ -799,6 +805,7 @@ function update(dt){
 				setTimeout(function(){ resetPos();},2000);
 				events.push({eventid:eventsCode['SCORE'],
 					  type:'POST',
+					  playerid:players['RED'].id,
 		              player:players['RED'],
 					  data:''});
 				score+=1;
@@ -846,6 +853,7 @@ function update(dt){
 			if (state.previous==state["STANDBY"]){
 				events.push({eventid:eventsCode['END'],
 				  type:'POST',
+				  playerid:players['RED'].id,
 	              player:players['RED'],
 				  data:''});
 
