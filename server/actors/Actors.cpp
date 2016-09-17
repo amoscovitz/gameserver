@@ -109,6 +109,7 @@ void RemoteNetworkView::GenerateNewPositionActor(IEventDataPtr pEventData) {
 		std::istrstream in(httpinmsg.c_str(), httpinmsg.size());
 		pResponseHttpEvent->VDeserialize(in);
 		IEventManager::Get()->VTriggerEvent(pResponseHttpEvent);
+		return;
 	}
 
 	// calculate new coord random (great AI !)
@@ -130,7 +131,9 @@ void RemoteNetworkView::UpdatePositionActor(IEventDataPtr pEventData) {
 	Vec3 newPosition = pCastEventData->VGetPosition();
 	//look for actor data in actor manager by ip / actor name
 	StrongActorPtr pActor = m_ActorManager->GetActorByName(ip, name);
-	pActor->SetPosition(newPosition);
+	if (pActor != NULL) {
+		pActor->SetPosition(newPosition);
+	}
 }
 
 void RemoteNetworkView::GetActor(IEventDataPtr pEventData) {
