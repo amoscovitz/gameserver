@@ -272,5 +272,7 @@ void RemoteNetworkView::RemoveHTTPSocket(IEventDataPtr pEventData) {
 	printf("Remove HTTP Socket %d\n", pEventData->VGetSocketId());
 	NetSocket* netSocket = g_pSocketManager->FindSocket(pEventData->VGetSocketId());
 	// say to delete socket AFTER packet treatment
-	netSocket->SetSocketDelete(4);	
+	if (netSocket) {
+	    netSocket->SetSocketDelete(4);
+	}	
 }
