@@ -96,6 +96,8 @@ var replaybuffer= new Queue(600);
 
 var uagent = navigator.userAgent.toLowerCase();
 
+var imageLoaded = false;
+
 function DetectIphoneOrIpod()
 {
   return uagent.search("iphone") > -1 || uagent.search("ipod") > -1 || uagent.search("android") > -1;
@@ -106,14 +108,18 @@ function doMouseDown(event){
 	var pos={x:0,y:0};
 	pos.x=Math.round((event.clientX-rect.left)/(rect.right-rect.left)*canvas.width);
 	pos.y=Math.round((event.clientY-rect.top)/(rect.bottom-rect.top)*canvas.height);
-	if (state.current==state["MENU"]){
-		menu.input(pos);
-	}else if (state.current==state["GAMEOVER"]){
-		gameover.input(pos);
-	}else{
-		if (state.current!=state["PLAYING"]){
-		 return 0;
+	switch (state.current){
+	  case state["MENU"]:
+		if (imageLoaded){
+		  menu.input(pos);
+		}else{
+		  console.info('Loading...');
 		}		
+		break;
+	  case state["GAMEOVER"]:
+		gameover.input(pos);
+		break;
+	  case state["PLAYING"]:
 		// will be handled by input
 		window.InputEvent = event;
 		
@@ -133,6 +139,11 @@ function doMouseDown(event){
 		              player:players['RED'].name,
 					  data:pos.x+' '+pos.y+' 0.0'});
 	}
+		
+}
+
+function setImageLoaded(){
+	imageLoaded = true;
 }
 
 function init() {
@@ -141,13 +152,15 @@ function init() {
 	if (param[0]=="timeout"){
 		mytimeout = param[1];
 	}
-    icecreamAudio = new Audio("icecream.wav");
-
 	terrainPattern = ctx.createPattern(img, 'repeat');
 	ctx.fillStyle=terrainPattern;
 	lastTime = Date.now();
     sb = new Image();
+	sb.onload = setImageLoaded();
     sb.src = 'sbp.PNG';
+
+    icecreamAudio = new Audio("icecream.wav");
+
 	var framesRed={
 	    length :4, 
 		animRight :[{pos :[32,32]},{pos :[2*32,32]},{pos :[3*32,32]},{pos :[4*32,32]}],
@@ -401,7 +414,9 @@ function init() {
 			this.playRect.y = y;
 			ctx.fillText("GAME OVER", canvas.width/2-size, y);			
 		};
-	main();
+	ctx.fillStyle = "Black";
+    ctx.fillText("Loading...",50, 50);
+	setTimeout(main, 2000);	
 }
 
 function sendEvent(event){
@@ -508,7 +523,7 @@ function main() {
     var dt = (now - lastTime) / gSpeed;
 	switch (state.current){
 	    case state["INIT"]:
-		console.info('init');
+		    console.info('init');
 			playerBlueKO.done = false;
 			playerRedKO.done = false;
 			playerRed.fx=0;
@@ -525,6 +540,8 @@ function main() {
 			events = [];
 			//inform server to create players 
 			console.info('initRED:'+players['RED'].id+' '+players['RED'].name );
+			updateAndRender(dt);
+			
 			if (players['RED'].id == -1){
 				events.push({eventid:eventsCode['CREATEPLAYER'],
 					  type:'POST',
@@ -742,15 +759,17 @@ function playerRedUpdate(dt){
 }
 
 function playerRedRender(){
-	if (state.current==state["STANDBY"]){
-	 	playerRedKO.render(ctx);
-	}else{
-		if (playerRed.isFiring){
-			playerFireRed.render(ctx);
-		}else{
-			playerRed.render(ctx);
-		}
-	}
+    switch (state.current){
+	   case state["STANDBY"]:
+			playerRedKO.render(ctx);
+		break;
+		default:
+			if (playerRed.isFiring){
+				playerFireRed.render(ctx);
+			}else{
+				playerRed.render(ctx);
+			}		
+	}	
 }
 
 /* BLUE player*/
@@ -779,14 +798,10 @@ function playerBlueUpdate(dt){
 }
 
 function playerBlueRender(){
-	if (state.current==state["STANDBY"]){
+	if (state.current==state["STANDBY"] || playerBlue.dead){
 	 	playerBlueKO.render(ctx);
 	}else{
-		if (playerBlue.dead){
-			playerBlueKO.render(ctx);
-		}else{
-			playerBlue.render(ctx);
-		}
+		playerBlue.render(ctx);
 	}
 }
 /* ******* */
@@ -814,83 +829,85 @@ function handleInput(){
 }
 
 function update(dt){
-	if (state.current==state["PLAYING"]){
-		if (boxCollides([playerRed.playerPosx,playerRed.playerPosy], [32,32], [spriteBall.pos[0],spriteBall.pos[1]], [8,8])){
-			if (!spriteBall.isPicked() && spriteBall.fired == false ){
-				spriteBall.setPicked();
+     switch (state.current){
+	    case state["PLAYING"]:
+			if (boxCollides([playerRed.playerPosx,playerRed.playerPosy], [32,32], [spriteBall.pos[0],spriteBall.pos[1]], [8,8])){
+				if (!spriteBall.isPicked() && spriteBall.fired == false ){
+					spriteBall.setPicked();
+				}
 			}
-		}
-		
-		if (boxCollides([playerBlue.playerPosx,playerBlue.playerPosy], [30,30], [spriteBall.pos[0],spriteBall.pos[1]], [8,8])){
-			if (spriteBall.fired == true && playerBlue.dead==false){
-				console.info("Player Blue hit!");
-				// start anim blue fall only
-				posBlue.x = playerBlueKO.playerPosx = playerBlue.playerPosx;
-				posBlue.y = playerBlueKO.playerPosy = playerBlue.playerPosy;
-				playerBlue.dead=true;
-				// Wait 2 seconds before replay while animation KO is over
-				setTimeout(function(){ replay();},2000);
-				events.push({eventid:eventsCode['SCORE'],
-					  type:'POST',
-					  playerid:players['RED'].id,
-		              player:players['RED'],
-					  data:''});
-				score+=1;
-				setState(state["SCORE"]);				
-			}
-		}
-		
-		if (boxCollides([playerRed.playerPosx,playerRed.playerPosy], [25,25], [playerBlue.playerPosx,playerBlue.playerPosy], [25,25]) && !playerBlue.dead){
-			// where we want the anim to stop (x axis only)
-			if (playerRed.playerPosx <posRed.x){
-			    posRed.x = playerRed.playerPosx-80<0?0:playerRed.playerPosx-80;
-			}else{
-				posRed.x = playerRed.playerPosx+80>canvas.width?canvas.width-32:playerRed.playerPosx+80;
-			}
-			posRed.y = playerRed.playerPosy;
-			// anim start where player is
-			playerRedKO.playerPosx = playerRed.playerPosx;
-			playerRedKO.playerPosy = playerRed.playerPosy;
 			
-
-			if (playerBlue.playerPosx <posBlue.x){
-				posBlue.x = playerBlue.playerPosx-80<0?0:playerBlue.playerPosx-80;
-			}else{
-				posBlue.x = playerBlue.playerPosx+80>canvas.width?canvas.width-32:playerBlue.playerPosx+80;
+			if (boxCollides([playerBlue.playerPosx,playerBlue.playerPosy], [30,30], [spriteBall.pos[0],spriteBall.pos[1]], [8,8])){
+				if (spriteBall.fired == true && playerBlue.dead==false){
+					console.info("Player Blue hit!");
+					// start anim blue fall only
+					posBlue.x = playerBlueKO.playerPosx = playerBlue.playerPosx;
+					posBlue.y = playerBlueKO.playerPosy = playerBlue.playerPosy;
+					playerBlue.dead=true;
+					// Wait 2 seconds before replay while animation KO is over
+					setTimeout(function(){ replay();},2000);
+					events.push({eventid:eventsCode['SCORE'],
+						  type:'POST',
+						  playerid:players['RED'].id,
+						  player:players['RED'],
+						  data:''});
+					score+=1;
+					setState(state["SCORE"]);				
+				}
 			}
-			posBlue.y = playerBlue.playerPosy;
+			
+			if (boxCollides([playerRed.playerPosx,playerRed.playerPosy], [25,25], [playerBlue.playerPosx,playerBlue.playerPosy], [25,25]) && !playerBlue.dead){
+				// where we want the anim to stop (x axis only)
+				if (playerRed.playerPosx <posRed.x){
+					posRed.x = playerRed.playerPosx-80<0?0:playerRed.playerPosx-80;
+				}else{
+					posRed.x = playerRed.playerPosx+80>canvas.width?canvas.width-32:playerRed.playerPosx+80;
+				}
+				posRed.y = playerRed.playerPosy;
+				// anim start where player is
+				playerRedKO.playerPosx = playerRed.playerPosx;
+				playerRedKO.playerPosy = playerRed.playerPosy;
+				
 
-			playerBlueKO.playerPosx = playerBlue.playerPosx;
-			playerBlueKO.playerPosy = playerBlue.playerPosy;
-			if (debug) console.info("hit, return to base!");
-			if  (!!icecreamAudio.canPlayType && icecreamAudio.canPlayType('audio/wav') != ""){
-				icecreamAudio.play();
+				if (playerBlue.playerPosx <posBlue.x){
+					posBlue.x = playerBlue.playerPosx-80<0?0:playerBlue.playerPosx-80;
+				}else{
+					posBlue.x = playerBlue.playerPosx+80>canvas.width?canvas.width-32:playerBlue.playerPosx+80;
+				}
+				posBlue.y = playerBlue.playerPosy;
+
+				playerBlueKO.playerPosx = playerBlue.playerPosx;
+				playerBlueKO.playerPosy = playerBlue.playerPosy;
+				if (debug) console.info("hit, return to base!");
+				if  (!!icecreamAudio.canPlayType && icecreamAudio.canPlayType('audio/wav') != ""){
+					icecreamAudio.play();
+				}
+				// Wait 2 seconds before returning to base
+				setTimeout(function(){ resetPos();},2000);
+				setState(state["STANDBY"]);
 			}
-			// Wait 2 seconds before returning to base
-			setTimeout(function(){ resetPos();},2000);
-	        setState(state["STANDBY"]);
+			break;
+			//message=playerRedKO.done+"playerRed.fx:"+playerRed.fx+" playerRedKO.fx:"+playerRedKO.fx;
+		case state["BACKTOBASE"]:
+				// sb guys are in place, start new game
+				if (Math.floor(playerRed.playerPosx)<=0 && Math.floor(playerRed.playerPosy)<=0
+				 && Math.floor(playerBlue.playerPosx)>canvas.width-35 && Math.floor(playerBlue.playerPosy)>canvas.height-35){
+					// init frame pos
+					if (state.previous==state["STANDBY"]){
+						events.push({eventid:eventsCode['END'],
+						  type:'POST',
+						  playerid:players['RED'].id,
+						  player:players['RED'],
+						  data:''});
+
+						setState(state["GAMEOVER"]);
+					}else{
+						setState(state["INIT"]);
+					}
+					message = "";
+				}
+		default:
 		}
-	}
-	//message=playerRedKO.done+"playerRed.fx:"+playerRed.fx+" playerRedKO.fx:"+playerRedKO.fx;
-	if (state.current==state["BACKTOBASE"]){
-	    // sb guys are in place, start new game
-	    if (Math.floor(playerRed.playerPosx)<=0 && Math.floor(playerRed.playerPosy)<=0
-		 && Math.floor(playerBlue.playerPosx)>canvas.width-35 && Math.floor(playerBlue.playerPosy)>canvas.height-35){
-		    // init frame pos
-			if (state.previous==state["STANDBY"]){
-				events.push({eventid:eventsCode['END'],
-				  type:'POST',
-				  playerid:players['RED'].id,
-	              player:players['RED'],
-				  data:''});
-
-				setState(state["GAMEOVER"]);
-			}else{
-				setState(state["INIT"]);
-			}
-			message = "";
-		}
-	}
 };
 
 var tick = 0;
