@@ -221,9 +221,13 @@ function init() {
 		 if (spriteBall.isPicked()){
 			this.stop();
 			switch (playerRed.currentDirection){
+				case directions['NORTHWEST']:
+				case directions['NORTHEAST']:
 				case directions['NORTH']:
 					playerFireRed.frames = framesRedFireN;
 					break;
+				case directions['SOUTHWEST']:
+				case directions['SOUTHEAST']:
 				case directions['SOUTH']:
 					playerFireRed.frames = framesRedFireS;
 					break;
@@ -247,21 +251,24 @@ function init() {
 	   // => stop in last direction
 	   posRed.x =  this.playerPosx;
 	   posRed.y =  this.playerPosy;	
-	   if (this.currentDirection==directions['NORTH']){
-			this.fx = this.frames.animUp[0].pos[0];
-			this.fy = this.frames.animUp[0].pos[1];
-	   }
-	   if (this.currentDirection==directions['SOUTH']){
-			this.fx = this.frames.animDown[0].pos[0];
-			this.fy = this.frames.animDown[0].pos[1];
-	   }
-	   if (this.currentDirection==directions['WEST']){
-			this.fx = this.frames.animLeft[0].pos[0];
-			this.fy = this.frames.animLeft[0].pos[1];
-	   }
-	   if (this.currentDirection==directions['EAST']){
-			this.fx = this.frames.animRight[0].pos[0];
-			this.fy = this.frames.animRight[0].pos[1];
+	   switch (this.currentDirection){
+		   case directions['NORTH']:
+				this.fx = this.frames.animUp[0].pos[0];
+				this.fy = this.frames.animUp[0].pos[1];
+				break;
+		   case directions['SOUTH']:
+				this.fx = this.frames.animDown[0].pos[0];
+				this.fy = this.frames.animDown[0].pos[1];
+				break;
+		   case directions['WEST']:
+				this.fx = this.frames.animLeft[0].pos[0];
+				this.fy = this.frames.animLeft[0].pos[1];
+				break;
+		   case directions['EAST']:
+				this.fx = this.frames.animRight[0].pos[0];
+				this.fy = this.frames.animRight[0].pos[1];
+				break;
+			default:
 	   }
 	}
 		
@@ -554,8 +561,6 @@ function main() {
 					  playerid:players['RED'].id,
 		              player:players['RED'].name,
 					  data:null});
-			}else{
-			  // TODO send event with initial pos to the server
 			}
 			if (players['BLUE'].id == -1){
 				events.push({eventid:eventsCode['CREATEPLAYER'],
@@ -569,11 +574,9 @@ function main() {
 		              player:players['BLUE'].name,
 					  data:null});
 
-		    }else{
-			  // TODO send event with initial pos to the server
-			}
-            // TODO : setState must be done when server answered
-		    setState(state["PLAYING"]);
+		    }
+			
+			setState(state["PLAYING"]);
 			break;
 		case state["MENU"]:
 			menu.update(dt);
@@ -760,9 +763,9 @@ function playerRedUpdate(dt){
 
 function playerRedRender(){
     switch (state.current){
-	   case state["STANDBY"]:
+	    case state["STANDBY"]:
 			playerRedKO.render(ctx);
-		break;
+		    break;
 		default:
 			if (playerRed.isFiring){
 				playerFireRed.render(ctx);
@@ -907,7 +910,7 @@ function update(dt){
 					message = "";
 				}
 		default:
-		}
+	}
 };
 
 var tick = 0;
