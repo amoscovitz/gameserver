@@ -447,7 +447,7 @@ function sendEvent(event){
 		return 1;
 	}
 	$.ajax({
-       url : 'http://78.237.108.215:2222/',
+       url : 'http://0.0.0.0:0000/',
        type : httpRequestType,
 	   cache : false,
        dataType : 'text',
