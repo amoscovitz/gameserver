@@ -88,11 +88,11 @@ SCORE   :2994948032,
 END     :2396952138
 };
 
-// store history of the 10 last seconds
-// 10 seconds at 60 frames/ secs = 600 frames to save
+// store history of the 5 last seconds
+// 5 seconds at 60 frames/ secs = 300 frames to save
 //1 Frame = 
 // pos of player red / pos of player blue / pos of ball
-var replaybuffer= new Queue(600);
+var replaybuffer= new Queue(300);
 
 var uagent = navigator.userAgent.toLowerCase();
 
@@ -161,18 +161,70 @@ function init() {
 
     icecreamAudio = new Audio("icecream.wav");
 
-	var framesRed={
-	    length :4, 
-		animRight :[{pos :[32,32]},{pos :[2*32,32]},{pos :[3*32,32]},{pos :[4*32,32]}],
-		animLeft :[{pos :[17*32,32]},{pos :[18*32,32]},{pos :[19*32,32]},{pos :[20*32,32]}],
-		animUp :[{pos :[16*32,0]},{pos :[17*32,0]},{pos :[18*32,0]},{pos :[19*32,0]}],
-		animDown :[{pos :[9*32,32]},{pos :[10*32,32]},{pos :[11*32,32]},{pos :[12*32,32]}],
-		animLeftDown :[{pos :[13*32,32]},{pos :[14*32,32]},{pos :[15*32,32]},{pos :[16*32,32]}],
-		animLeftUp :[{pos :[21*32,32]},{pos :[22*32,32]},{pos :[0,32*2]},{pos :[32,32*2]}],
-		animRightUp :[{pos :[20*32,0]},{pos :[21*32,0]},{pos :[22*32,0]},{pos :[0,32]}],
-		animRightDown :[{pos :[5*32,32]},{pos :[6*32,32]},{pos :[7*32,32]},{pos :[8*32,32]}]
-	};
+    initBlue();
+	
+    initRed();	
+	
+	initBall();			
+	
+	// default input
+	if (inputBinder['leftButtonMouse'] == null){
+		inputBinder['leftButtonMouse'] = moveCommand;
+	}
+	if (inputBinder['rightButtonMouse'] == null){
+		inputBinder['rightButtonMouse'] = fireCommand;
+	}
+	if (inputBinder['touchMove'] == null){
+		inputBinder['touchMove'] = fireCommand;
+	}
+	menu= new Menu();	
+	gameover = new Menu();
+	gameover.update= function(dt){
+		     this.tick += animSpeedMenu *dt;
+			 if (this.click){
+			    setState(state["MENU"]);
+				this.click=false;
+			 }
+		};
+		
+	gameover.render= function(ctx){
+			ctx.fillStyle=terrainPattern;
+			ctx.fillRect(0, 0, canvas.width, canvas.height);	
+			ctx.fillStyle="Gray";
+			ctx.globalAlpha=0.4;
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.globalAlpha=1;		
+			ctx.textAlign = "center";
+			ctx.fillStyle = "White";			
+			var y = this.y;
+			//title
+			var size=32;		   
+			size = Math.floor(size*0.8);
+			var v = Math.floor((Math.random() * 255)+1);
+			var gradient=ctx.createLinearGradient(0,0,canvas.width/2,0);
+			if (this.tick%4<2){
+				gradient.addColorStop("0","magenta");
+				gradient.addColorStop("0.5","blue");
+				gradient.addColorStop("1.0","red");
+			}else{
+				gradient.addColorStop("0","red");
+				gradient.addColorStop("0.5","blue");
+				gradient.addColorStop("1.0","magenta");			
+			}
+			if (this.tick>4){
+				this.tick=0;
+			}			
+			ctx.fillStyle = gradient;			
+			this.playRect.x = canvas.width/2;
+			this.playRect.y = y;
+			ctx.fillText("GAME OVER", canvas.width/2-size, y);			
+		};
+	ctx.fillStyle = "Black";
+    ctx.fillText("Loading...",50, 50);
+	setTimeout(main, 2000);	
+}
 
+function initBlue(){
 	var framesBlue={
 	    length :4,
 		animRight :[{pos :[6*32,6*32]},{pos :[7*32,6*32]},{pos :[8*32,6*32]},{pos :[9*32,6*32]}],
@@ -183,6 +235,31 @@ function init() {
 		animLeftUp :[{pos :[3*32,7*32]},{pos :[4*32,7*32]},{pos :[5*32,7*32]},{pos :[6*32,7*32]}],
 		animRightUp :[{pos :[2*32,6*32]},{pos :[3*32,6*32]},{pos :[4*32,6*32]},{pos :[5*32,6*32]}],
 		animRightDown :[{pos :[10*32,6*32]},{pos :[11*32,6*32]},{pos :[12*32,6*32]},{pos :[13*32,6*32]}]
+	};
+
+	
+	var framesKOBlue={
+	    length :8,
+		anim :[{pos :[7*32,9*32]},{pos :[32,9*32]},{pos :[2*32,9*32]},{pos :[3*32,9*32]},{pos :[4*32,9*32]},{pos :[5*32,9*32]},{pos :[6*32,9*32]},{pos :[7*32,9*32]}]	
+	};
+	playerBlue= new Sprite("Blue", sb, [canvas.width -32, canvas.height-32], [32, 32], animSpeed, playerSpeed, framesBlue,[5*32,5*32],false);
+	playerBlue.dead=false;
+	playerBlueKO = new Sprite("BlueKO",sb,[0, 0], [32, 32],animSpeed, playerSpeed, framesKOBlue, [0,0],true);
+
+}
+
+function initRed(){
+	
+	var framesRed={
+	    length :4, 
+		animRight :[{pos :[32,32]},{pos :[2*32,32]},{pos :[3*32,32]},{pos :[4*32,32]}],
+		animLeft :[{pos :[17*32,32]},{pos :[18*32,32]},{pos :[19*32,32]},{pos :[20*32,32]}],
+		animUp :[{pos :[16*32,0]},{pos :[17*32,0]},{pos :[18*32,0]},{pos :[19*32,0]}],
+		animDown :[{pos :[9*32,32]},{pos :[10*32,32]},{pos :[11*32,32]},{pos :[12*32,32]}],
+		animLeftDown :[{pos :[13*32,32]},{pos :[14*32,32]},{pos :[15*32,32]},{pos :[16*32,32]}],
+		animLeftUp :[{pos :[21*32,32]},{pos :[22*32,32]},{pos :[0,32*2]},{pos :[32,32*2]}],
+		animRightUp :[{pos :[20*32,0]},{pos :[21*32,0]},{pos :[22*32,0]},{pos :[0,32]}],
+		animRightDown :[{pos :[5*32,32]},{pos :[6*32,32]},{pos :[7*32,32]},{pos :[8*32,32]}]
 	};
 
 	var framesKORed={
@@ -207,12 +284,6 @@ function init() {
 		anim :[{pos :[21*32,2*32]},{pos :[22*32,2*32]},{pos :[23*32,2*32]}]	
 	};
 
-	
-	var framesKOBlue={
-	    length :8,
-		anim :[{pos :[7*32,9*32]},{pos :[32,9*32]},{pos :[2*32,9*32]},{pos :[3*32,9*32]},{pos :[4*32,9*32]},{pos :[5*32,9*32]},{pos :[6*32,9*32]},{pos :[7*32,9*32]}]	
-	};
-	
 	playerRed= new Sprite("Red", sb, [0, 0], [32, 32], animSpeed, playerSpeed, framesRed, [0,0],false);
 	playerRed.isFiring=false;
 	playerRed.fire =function(){
@@ -280,13 +351,13 @@ function init() {
 		}
 	//	console.info("Red x:"+posRed.x+" y:"+posRed.y);
 	}
-	
-	playerBlue= new Sprite("Blue", sb, [canvas.width -32, canvas.height-32], [32, 32], animSpeed, playerSpeed, framesBlue,[5*32,5*32],false);
-	playerBlue.dead=false;
+
     playerRedKO = new Sprite("RedKO",sb,[0, 0], [32, 32],animSpeed, playerSpeed, framesKORed, [0,0],true);
-	playerBlueKO = new Sprite("BlueKO",sb,[0, 0], [32, 32],animSpeed, playerSpeed, framesKOBlue, [0,0],true);
     playerFireRed = new Sprite("RedFire",sb,[0, 0], [32, 32],animSpeed, playerSpeed, framesRedFireN, [0,0],true);
-	
+
+}
+
+function initBall(){
 	spriteBall = new Sprite("Ball",null,[canvas.width/2, canvas.height/2], [32, 32],animSpeed, playerSpeed, null, [0,0],false);
 	spriteBall.picked = false;
 	spriteBall.fired = false;
@@ -367,63 +438,7 @@ function init() {
 	};
 	
 	var sphere = new Image();
-	sphere.src="mat1_clear_small1.jpg";			
-	
-	// default input
-	if (inputBinder['leftButtonMouse'] == null){
-		inputBinder['leftButtonMouse'] = moveCommand;
-	}
-	if (inputBinder['rightButtonMouse'] == null){
-		inputBinder['rightButtonMouse'] = fireCommand;
-	}
-	if (inputBinder['touchMove'] == null){
-		inputBinder['touchMove'] = fireCommand;
-	}
-	menu= new Menu();	
-	gameover = new Menu();
-	gameover.update= function(dt){
-		     this.tick += animSpeedMenu *dt;
-			 if (this.click){
-			    setState(state["MENU"]);
-				this.click=false;
-			 }
-		};
-		
-	gameover.render= function(ctx){
-			ctx.fillStyle=terrainPattern;
-			ctx.fillRect(0, 0, canvas.width, canvas.height);	
-			ctx.fillStyle="Gray";
-			ctx.globalAlpha=0.4;
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			ctx.globalAlpha=1;		
-			ctx.textAlign = "center";
-			ctx.fillStyle = "White";			
-			var y = this.y;
-			//title
-			var size=32;		   
-			size = Math.floor(size*0.8);
-			var v = Math.floor((Math.random() * 255)+1);
-			var gradient=ctx.createLinearGradient(0,0,canvas.width/2,0);
-			if (this.tick%4<2){
-				gradient.addColorStop("0","magenta");
-				gradient.addColorStop("0.5","blue");
-				gradient.addColorStop("1.0","red");
-			}else{
-				gradient.addColorStop("0","red");
-				gradient.addColorStop("0.5","blue");
-				gradient.addColorStop("1.0","magenta");			
-			}
-			if (this.tick>4){
-				this.tick=0;
-			}			
-			ctx.fillStyle = gradient;			
-			this.playRect.x = canvas.width/2;
-			this.playRect.y = y;
-			ctx.fillText("GAME OVER", canvas.width/2-size, y);			
-		};
-	ctx.fillStyle = "Black";
-    ctx.fillText("Loading...",50, 50);
-	setTimeout(main, 2000);	
+	sphere.src="mat1_clear_small1.jpg";
 }
 
 function sendEvent(event){
@@ -454,7 +469,7 @@ function sendEvent(event){
 		return 1;
 	}
 	$.ajax({
-       url : 'http://0.0.0.0:0000/',
+       url : 'http://70.250.75.222:2222/',
        type : httpRequestType,
 	   cache : false,
        dataType : 'text',
@@ -520,7 +535,7 @@ var requestAnimFrame = (function(){
 })();
 
 var lastTime;
-var gSpeed = 1000;
+var gSpeed = 3000;
 var replaytick = 0;
 /******************
 /* MAIN          */
@@ -628,8 +643,8 @@ function updateAndRender(dt){
 	spriteBallUpdate(dt);
 	render();
 	spriteBall.render(ctx);
-	playerBlueRender();	
-	playerRedRender();		
+	playerBlueRender(ctx);	
+	playerRedRender(ctx);		
 }
 
 function addreplay(timestamp){
@@ -685,6 +700,7 @@ function deserializeReplay(replayevent){
 }
 
 function manageEvents(){
+	return;
 	for(var i=0; i<events.length; i++) {
 		var event = events.splice(i,1)[0];
 		sendEvent(event); 
@@ -761,7 +777,7 @@ function playerRedUpdate(dt){
 	}	
 }
 
-function playerRedRender(){
+function playerRedRender(ctx){
     switch (state.current){
 	    case state["STANDBY"]:
 			playerRedKO.render(ctx);
@@ -800,7 +816,7 @@ function playerBlueUpdate(dt){
 	 }    
 }
 
-function playerBlueRender(){
+function playerBlueRender(ctx){
 	if (state.current==state["STANDBY"] || playerBlue.dead){
 	 	playerBlueKO.render(ctx);
 	}else{
