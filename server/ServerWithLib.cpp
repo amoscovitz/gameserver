@@ -7,10 +7,10 @@
 #include <conio.h>
 using namespace std;
 
-void test(char* toto){
+void testhttpmessage(char* msg){
 
 	HTTPResponseBuilder::GetSingleton().CreateHttpMessage();
-	HTTPResponseBuilder::GetSingleton().SetMessageBody(toto);
+	HTTPResponseBuilder::GetSingleton().SetMessageBody(msg);
 	HTTPResponseBuilder::GetSingleton().SetMessageResponse(http_response_code_t::OK);
 	HTTPResponseBuilder::GetSingleton().BuildHttpMessage();
 
